@@ -2,6 +2,7 @@ import requests
 import json
 import datetime
 from types import GeneratorType
+import os
 
 
 def get_location_id(location: str) -> int:
@@ -107,4 +108,4 @@ class Log:
 
 
 if __name__ == "__main__":
-    print(get_photo(938109376))
+    os.system("python Bot.py")

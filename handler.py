@@ -1,26 +1,39 @@
-import telebot
-import main as logic
+from Loader import *
+import rapidapi as logic
+from data import data
+from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 
 
-
-def location(message, mode: str = "PRICE") -> None:
+def location(message) -> None:
     bot.send_message(message.chat.id, "Сейчас поищем, подождите.")
     location_id = logic.get_location_id(message.text)
-    if location_id is None:
-        bot.send_message(message.chat.id, "Данный город не найден повторите "
-                                          "попытку")
-        return
-    if mode == "DISTANCE_FROM_LANDMARK":
-        bot.send_message(message.chat.id, "Укажите минимальную цену.")
-        bot.register_next_step_handler(message, min_price_get, mode,
-                                       location_id)
-    else:
-        hotels_list(message, location_id, mode)
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    for key, value in location_id.items():
+        keyboard.add(telebot.types.InlineKeyboardButton(
+            text=key, callback_data=value, copy_text_to_callback=True))
+    bot.send_message(message.from_user.id, text="Уточните пожалуйста.",
+                     reply_markup=keyboard)
 
 
-def min_price_get(message, mode: str, location_id: str) -> None:
+def check_in_date_callendar(message):
+    calendar, step = DetailedTelegramCalendar(calendar_id=1).build()
+    bot.send_message(message.chat.id,
+                     f"Выберите дату заезда в отель {LSTEP[step]}",
+                     reply_markup=calendar)
+
+
+def check_out_date_callendar(message):
+    calendar, step = DetailedTelegramCalendar(calendar_id=2).build()
+    bot.send_message(message.chat.id,
+                     f"Выберите дату выселения из отеля. {LSTEP[step]}",
+                     reply_markup=calendar)
+
+
+def min_price_get(message) -> None:
     try:
-        if int(message.text) < 0:
+        txt = message.text
+        txt = "".joinn(filter(lambda x: x in "1234567890.", txt))
+        if int(txt) < 0:
             bot.send_message(message.chat.id, "Вам не будут платить за комнату!")
             bot.send_message(message.chat.id, "По этому установим на 0.")
             price_min = 0
@@ -31,13 +44,15 @@ def min_price_get(message, mode: str, location_id: str) -> None:
         bot.send_message(message.chat.id, "По этому установим на 0.")
         price_min = 0
     bot.send_message(message.chat.id, "Введите максимальную цену")
-    bot.register_next_step_handler(message, max_price_get, mode,
-                                   price_min, location_id)
+    data[str(message.chat.id)]["price_min"] = price_min
+    bot.register_next_step_handler(message, max_price_get)
 
 
-def max_price_get(message, mode: str, price_min: int, location_id: str) -> None:
+def max_price_get(message) -> None:
     try:
-        send = int(message.text)
+        txt = message.text
+        txt = "".joinn(filter(lambda x: x in "1234567890.", txt))
+        send = int(txt)
         if send < 0:
             bot.send_message(message.chat.id, "Вам не будут платить за комнату!")
             bot.send_message(message.chat.id, "По этому установим на 999999.")
@@ -53,18 +68,21 @@ def max_price_get(message, mode: str, price_min: int, location_id: str) -> None:
         bot.send_message(message.chat.id, "Я вас не понял ")
         bot.send_message(message.chat.id, "По этому установим на 999999.")
         price_max = 999999
-    hotels_list(message, location_id, mode, price_min=price_min,
-                price_max=price_max)
+    data[str(message.chat.id)]["price_max"] = price_max
+    check_in_date_callendar(message)
 
-
-def hotels_list(message, location_id, mode: str, price_min: int = 0,
-                price_max: int = 999999) -> None:
+def hotels_list(message) -> None:
     bot.send_message(message.chat.id, "Город найден ищем отели в нём.")
-    hotels = logic.get_search_hotels(location_id, mode, price_min=price_min,
-                                     price_max=price_max)
-
+    chat_id = str(message.chat.id)
+    hotels = logic.get_search_hotels(data[chat_id]["town"],
+                                     data[str(message.chat.id)][
+                                         "check_in_date"],
+                                     data[str(message.chat.id)][
+                                         "check_out_date"],
+                                     data[chat_id]["mode"],
+                                     data[chat_id].get("price_min", 0),
+                                     data[chat_id].get("price_max", 999999))
     bot.send_message(message.chat.id, f"Нашлось отелей: {len(hotels)}")
-
     markup = telebot.types.ReplyKeyboardMarkup()
     send_yes = telebot.types.KeyboardButton('Да')
     send_no = telebot.types.KeyboardButton('Нет')
@@ -73,10 +91,10 @@ def hotels_list(message, location_id, mode: str, price_min: int = 0,
 
     bot.send_message(message.chat.id, "Выводить фото?")
 
-    bot.send_message(message.chat.id, "Выберите ответ на клавиатуре",
+    bot.send_message(message.chat.id, "Выберите ответ на клавиатуре.",
                      reply_markup=markup)
+    data[str(message.chat.id)]["basic"].set_hotels([A["name"] for A in hotels])
     bot.register_next_step_handler(message, picture, hotels_list=hotels)
-
 
 def picture(message, hotels_list: list[dict] = None) -> None:
     def oh_no():
@@ -142,9 +160,9 @@ def set_max_hotels(message, hotels_list: list = None, number_photos: int = 0)\
 
 def send_result(message, hotels_list: list = None, number_photos: int = 0,
                 number_hotels: int = 0) -> None:
+    data[str(message.chat.id)]["basic"].save_for_bd()
     for numbers_elem in range(number_hotels):
         send = hotels_list[numbers_elem]["name"]
-        logic.Log.write(message.chat.id, send)
         bot.send_message(message.chat.id, send)
 
         send = hotels_list[numbers_elem]["address"]["streetAddress"]
@@ -162,7 +180,7 @@ def send_result(message, hotels_list: list = None, number_photos: int = 0,
             photos = logic.get_photo(hotels_list[numbers_elem]["id"])
             for photo_index in range(number_photos):
                 bot.send_photo(message.chat.id, photos[photo_index])
+        bot.send_message(message.chat.id, str(hotels_list[numbers_elem]\
+                                              ["optimizedThumbUrls"]\
+                                                  ["srpDesktop"]))
         bot.send_message(message.chat.id, "=" * 57)
-
-
-bot.polling(none_stop=True, interval=0)

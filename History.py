@@ -1,52 +1,66 @@
-import sqlite3
 import datetime
-from typing import Iterable
-import functools
+import peewee
+import json
 
-class Db:
-    def __init__(self, db: str) -> None:
-        self.database = sqlite3.connect(db, check_same_thread=False)
-        self.database.text_factory = str
-        self.cursor = self.database.cursor()
-        if len(self.cursor.execute("select * from sqlite_master where type = "
-                                   "'table';").fetchall()) == 0:
-            self.cursor.execute("CREATE TABLE history("
-                           "chat_id TEXT,"
-                           "command TEXT,"
-                           "date TEXT,"
-                           "hotels TEXT);")
-            self.database.commit()
-
-    def read(self, chat_id) -> Iterable :
-        self.cursor.execute(f"SELECT * FROM history WHERE chat_id = {chat_id}")
-        return self.cursor.fetchall()
-
-    def save(self, data: list) -> None:
-        data = data[:-1]
-        data.append(functools.reduce(lambda x, y: x + y, data[-1]))
-        self.cursor.execute("insert into history ('chat_id', 'command', 'date',"
-                            " 'hotels') values (\'{0}\', \'{1}\', \'{2}\', \'{3}\');"
-                            .format(*data))
-        self.database.commit()
+db = peewee.SqliteDatabase('people.db')
 
 
-class Log:
-    def __init__(self, chat_id: str, command: str, db: str) -> None:
-        self.__chat_id = chat_id
-        self.__command = command
-        self.__db = Db(db)
-        date = datetime.datetime.now()
-        self.__date = date.strftime("%d %B %Y %H:%M:%S")
-        del date
-        self.__hotels = ""
+class Person(peewee.Model):
+    user_id = peewee.CharField()
+    command = peewee.CharField()
+    date = peewee.DateTimeField()
+    hotels = peewee.CharField()
 
-    def set_hotels(self, hotels: str) -> None:
-        self.__hotels = hotels
+    class Meta:
+        database = db
 
-    def save_for_bd(self) -> None:
-        if self.__hotels != "":
-            data = [self.__chat_id, self.__command, self.__date, self.__hotels]
-            self.__db.save(data)
 
-    def read(self, chat_id):
-        return self.__db.read(chat_id)
+class Users:
+    users = dict()
+
+    def __init__(self, user_id, command, mode) -> None:
+        self.start = datetime.datetime.now()
+        self.city = None
+        self.check_in = None
+        self.check_out = None
+        self.hotels_count = None
+        self.load_image = False
+        self.load_image_count = None
+        self.price_min = 0
+        self.price_max = 999999999
+        self.command = command
+        self.mode = mode
+        self.hotels = None
+        self.user_id = user_id
+        Users.add_user(user_id, self)
+
+    @staticmethod
+    def get_user(user_id) -> 'Users':
+        if Users.users.get(user_id) is None:
+            new_user = Users(user_id)
+            return new_user
+        return Users.users.get(user_id)
+
+    @classmethod
+    def add_user(cls, user_id, user) -> None:
+        cls.users[user_id] = user
+
+    def save(self) -> None:
+        Person.create_table()
+        usr = Person(user_id=self.user_id, command=self.command,
+                     date=self.start, hotels=
+                     f"{[A['name'] for A in self.hotels[:self.hotels_count]]}")
+        usr.save()
+
+    @staticmethod
+    def read(user_id) -> list:
+        lst = []
+        for elem in Person.select().where(Person.user_id == user_id):
+            try:
+                q = eval(elem.hotels)
+                print(q)
+                z = q if q != [] else ["Ничего не нашлось"]
+            except Exception:
+                pass
+            lst += [elem.command, elem.date] + z + ["="*50]
+        return lst

@@ -1,8 +1,8 @@
-# import Bot
-from handler import *
-from Loader import *
-from History import Log
-from data import data
+import telegram_bot_calendar
+from handler import check_in_date_callendar, check_out_date_callendar, \
+    min_price_get, hotels_list, location
+from Loader import bot
+from History import Users
 
 
 @bot.message_handler(commands=['start', 'help'])
@@ -21,19 +21,13 @@ def menu(message):
 
 @bot.message_handler(commands=['history'])
 def history(message) -> None:
-    logger = Log(chat_id=str(message.chat.id), command=message.text,
-                 db="History.db")
-    logs = logger.read(str(message.chat.id))
+    logs = Users.read(message.chat.id)
     for row in logs:
-        bot.send_message(message.chat.id,
-                         f"{row[2]} | {row[1]} | {row[3]}")
+        bot.send_message(message.chat.id,row)
 
 
 @bot.message_handler(commands=['highprice', 'bestdeal', 'lowprice'])
 def get_text_messages(message) -> None:
-    logger = Log(chat_id=str(message.chat.id),
-                 command=message.text.replace("/", ""), db="History.db")
-    data[str(message.chat.id)] = {"basic": logger}
     if message.text == '/highprice':
         mode = "PRICE_HIGHEST_FIRST"
     elif message.text == '/lowprice':
@@ -41,46 +35,55 @@ def get_text_messages(message) -> None:
     else:
         mode = "DISTANCE_FROM_LANDMARK"
     bot.send_message(message.chat.id, "Введите город.")
-    data[str(message.chat.id)]["mode"] = mode
+    Users(user_id=message.chat.id, command=message.text.replace("/", ""),
+          mode=mode)
     bot.register_next_step_handler(message, location)
 
 
-@bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=1))
+@bot.callback_query_handler(func=telegram_bot_calendar\
+                            .DetailedTelegramCalendar.func(calendar_id=1))
 def check_in_date(call):
-    result, key, step = DetailedTelegramCalendar(calendar_id=1).process(call.data)
+    result, key, step = telegram_bot_calendar.DetailedTelegramCalendar(
+        calendar_id=1).process(call.data)
     if not result and key:
-        bot.edit_message_text(f"Выберите дату заезда в отель {LSTEP[step]}",
+        bot.edit_message_text(f"Выберите дату заезда в отель "
+                              f"{telegram_bot_calendar.LSTEP[step]}",
                               call.message.chat.id,
                               call.message.message_id,
                               reply_markup=key)
     elif result:
-        data[str(call.message.chat.id)]["check_in_date"] = result
+        Users.get_user(call.message.chat.id).check_in = result
         check_out_date_callendar(call.message)
 
 
-@bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=2))
+@bot.callback_query_handler(func=telegram_bot_calendar\
+                            .DetailedTelegramCalendar.func(calendar_id=2))
 def check_out_date(call):
-    result, key, step = DetailedTelegramCalendar(calendar_id=2).process(
+    result, key, step = telegram_bot_calendar.DetailedTelegramCalendar(
+        calendar_id=2).process(
         call.data
     )
     if not result and key:
-        bot.edit_message_text(f"Выберите дату выселения из отель {LSTEP[step]}",
+        bot.edit_message_text(f"Выберите дату выселения из отель "
+                              f"{telegram_bot_calendar.LSTEP[step]}",
                               call.message.chat.id,
                               call.message.message_id,
                               reply_markup=key)
     elif result:
-        data[str(call.message.chat.id)]["check_out_date"] = result
+        Users.get_user(call.message.chat.id).check_out = result
         hotels_list(call.message)
 
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_worker(call):
-    data[str(call.from_user.id)]["town"] = call.data
+    usr = Users.get_user(call.message.chat.id)
+    usr.city = call.data
     bot.send_message(call.message.chat.id, "Благодарю.")
-    if data[str(call.from_user.id)]["mode"] == "DISTANCE_FROM_LANDMARK":
+    if Users.get_user(call.message.chat.id).mode == "DISTANCE_FROM_LANDMARK":
         bot.send_message(call.message.chat.id, "Введите минимальную цену.")
         bot.register_next_step_handler(call.message, min_price_get)
     else:
         check_in_date_callendar(call.message)
+
 
 bot.polling(none_stop=True, interval=0)

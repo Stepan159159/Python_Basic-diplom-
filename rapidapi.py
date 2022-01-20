@@ -6,15 +6,18 @@ from types import GeneratorType
 import functools
 
 
-def get_location_id(location: str) -> int:
+def get_location_id(location: str) -> dict:
     url = "https://hotels4.p.rapidapi.com/locations/search"
     querystring = {"query": location,
                    "locale": "ru_RU"}
     headers = {
         'x-rapidapi-host': os.getenv('x-rapidapi-host'),
         'x-rapidapi-key': os.getenv('x-rapidapi-key')}
-    response = requests.request("GET", url, headers=headers, params=querystring,
+    try:
+        response = requests.request("GET", url, headers=headers, params=querystring,
                                 timeout=10)
+    except Exception:
+        return ["Что-то пошло не так"]
     if response.status_code == 200:
         result = json.loads(response.text)["suggestions"][0]["entities"]
         result = {elem["name"]: elem["destinationId"] for elem in result}
@@ -25,8 +28,6 @@ def get_location_id(location: str) -> int:
 
 def get_search_hotels(destinationId:int, date_in, date_out, sort: str, price_min: int = 0,
                       price_max: int = 999999) -> dict:
-    print(date_in)
-    print(date_out)
     url = "https://hotels4.p.rapidapi.com/properties/list"
     querystring = {"destinationId": f"{destinationId}",
                    "pageNumber": "1",
@@ -43,9 +44,11 @@ def get_search_hotels(destinationId:int, date_in, date_out, sort: str, price_min
         'x-rapidapi-host': os.getenv('x-rapidapi-host'),
         'x-rapidapi-key': os.getenv('x-rapidapi-key')
         }
-
-    response = requests.request("GET", url, headers=headers, params=querystring,
+    try:
+        response = requests.request("GET", url, headers=headers, params=querystring,
                                 timeout=10)
+    except Exception:
+        return ["Что-то пошло не так"]
     if response.status_code == 200:
         if sort == "DISTANCE_FROM_LANDMARK":
             hotels = json.loads(response.text)["data"]["body"]["searchResults"]\
@@ -87,8 +90,11 @@ def get_photo(hotel_id: int) -> dict["URL"]:
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
         'x-rapidapi-key': "beb5153422msh10d86b9d8d66b69p1d0b86jsn2dffe442b880"
     }
-    response = requests.request("GET", url, headers=headers, params=querystring,
-                                timeout=10)
+    try:
+        response = requests.request("GET", url, headers=headers,
+                                    params=querystring, timeout=10)
+    except Exception:
+        return ["Что-то пошло не так"]
     if response.status_code == 200:
         response = json.loads(response.text)
         result = [photo["baseUrl"].replace("{size}", search_max(photo["sizes"]))

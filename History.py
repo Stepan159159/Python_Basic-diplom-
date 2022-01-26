@@ -1,6 +1,6 @@
 import datetime
 import peewee
-import json
+
 
 db = peewee.SqliteDatabase('people.db')
 
@@ -37,7 +37,7 @@ class Users:
     @staticmethod
     def get_user(user_id) -> 'Users':
         if Users.users.get(user_id) is None:
-            new_user = Users(user_id)
+            new_user = Users(user_id, None, None)
             return new_user
         return Users.users.get(user_id)
 

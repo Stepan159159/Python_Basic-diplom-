@@ -118,7 +118,7 @@ def set_max_photo(message, hotels_list: list = None):
         number_photos = 10
     else:
         number_photos = int(txt)
-        if txt > 10:
+        if number_photos > 10:
             bot.send_message(message.chat.id, "Больше 10 нельзя.")
             number_photos = 10
 
@@ -174,7 +174,6 @@ def send_result(message, hotels_list: list = None, number_photos: int = 0,
             photos = logic.get_photo(hotels_list[numbers_elem]["id"])
             for photo_index in range(number_photos):
                 bot.send_photo(message.chat.id, photos[photo_index])
-        bot.send_message(message.chat.id, str(hotels_list[numbers_elem]\
-                                              ["optimizedThumbUrls"]\
-                                                  ["srpDesktop"]))
+        bot.send_message(message.chat.id, f'https://ru.hotels.com/ho'
+                         f'{hotels_list[numbers_elem]["id"]}')
         bot.send_message(message.chat.id, "=" * 57)

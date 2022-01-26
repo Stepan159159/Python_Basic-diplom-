@@ -1,12 +1,10 @@
 import os
-import datetime
 import requests
 import json
-from types import GeneratorType
-import functools
+from typing import Union
 
 
-def get_location_id(location: str) -> dict:
+def get_location_id(location: str) -> Union[list[str], dict]:
     url = "https://hotels4.p.rapidapi.com/locations/search"
     querystring = {"query": location,
                    "locale": "ru_RU"}
@@ -16,7 +14,7 @@ def get_location_id(location: str) -> dict:
     try:
         response = requests.request("GET", url, headers=headers, params=querystring,
                                 timeout=10)
-    except Exception:
+    except requests.exceptions.ConnectTimeout:
         return ["Что-то пошло не так"]
     if response.status_code == 200:
         result = json.loads(response.text)["suggestions"][0]["entities"]
@@ -26,8 +24,8 @@ def get_location_id(location: str) -> dict:
         return ["Что-то пошло не так"]
 
 
-def get_search_hotels(destinationId:int, date_in, date_out, sort: str, price_min: int = 0,
-                      price_max: int = 999999) -> dict:
+def get_search_hotels(destinationId:int, date_in, date_out, sort: str,
+                      price_min: int = 0, price_max: int = 999999) -> dict:
     url = "https://hotels4.p.rapidapi.com/properties/list"
     querystring = {"destinationId": f"{destinationId}",
                    "pageNumber": "1",
@@ -47,7 +45,7 @@ def get_search_hotels(destinationId:int, date_in, date_out, sort: str, price_min
     try:
         response = requests.request("GET", url, headers=headers, params=querystring,
                                 timeout=10)
-    except Exception:
+    except requests.exceptions.ConnectTimeout:
         return ["Что-то пошло не так"]
     if response.status_code == 200:
         if sort == "DISTANCE_FROM_LANDMARK":
@@ -68,6 +66,10 @@ def get_search_hotels(destinationId:int, date_in, date_out, sort: str, price_min
                  float(x["ratePlan"]["price"]["current"].replace(",", ".")
                        .replace("RUB", "").replace(" ", "")))
             )
+            print(hotels)
+            return hotels
+        print(json.loads(response.text)["data"]["body"]["searchResults"]\
+        ["results"])
         return json.loads(response.text)["data"]["body"]["searchResults"]\
         ["results"]
 
@@ -75,7 +77,7 @@ def get_search_hotels(destinationId:int, date_in, date_out, sort: str, price_min
         return ["Что-то пошло не так"]
 
 
-def get_photo(hotel_id: int) -> dict["URL"]:
+def get_photo(hotel_id: int) -> list["URL"]:
 
     def search_max(sizes: list) -> str:
         result = {"type": 0, "suffix": ""}
@@ -93,7 +95,7 @@ def get_photo(hotel_id: int) -> dict["URL"]:
     try:
         response = requests.request("GET", url, headers=headers,
                                     params=querystring, timeout=10)
-    except Exception:
+    except requests.exceptions.ConnectTimeout:
         return ["Что-то пошло не так"]
     if response.status_code == 200:
         response = json.loads(response.text)

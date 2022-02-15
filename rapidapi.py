@@ -66,10 +66,7 @@ def get_search_hotels(destinationId:int, date_in, date_out, sort: str,
                  float(x["ratePlan"]["price"]["current"].replace(",", ".")
                        .replace("RUB", "").replace(" ", "")))
             )
-            print(hotels)
             return hotels
-        print(json.loads(response.text)["data"]["body"]["searchResults"]\
-        ["results"])
         return json.loads(response.text)["data"]["body"]["searchResults"]\
         ["results"]
 

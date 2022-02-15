@@ -156,20 +156,30 @@ def send_result(message, hotels_list: list = None, number_photos: int = 0,
                 number_hotels: int = 0) -> None:
     Users.get_user(message.chat.id).save()
     for numbers_elem in range(number_hotels):
-        send = hotels_list[numbers_elem]["name"]
-        bot.send_message(message.chat.id, send)
-
-        send = hotels_list[numbers_elem]["address"]["streetAddress"]
-        bot.send_message(message.chat.id, send)
-
-        send = str(hotels_list[numbers_elem]["landmarks"][0]["label"]) + " " +\
-               str(hotels_list[numbers_elem]["landmarks"][0]["distance"])
-        bot.send_message(message.chat.id, send)
-
-        send = "Цена номера на одного равна " +\
+        send = hotels_list[numbers_elem]["name"] + "\n" + \
+               hotels_list[numbers_elem]["address"]["streetAddress"] + "\n" + \
+               str(hotels_list[numbers_elem]["landmarks"][0]["label"]) + " " +\
+               str(hotels_list[numbers_elem]["landmarks"][0]["distance"]) + \
+               "\n" + \
+               "Цена номера на одного равна " +\
                str(hotels_list[numbers_elem]["ratePlan"]["price"]
                    ["exactCurrent"])
-        bot.send_message(message.chat.id, send)
+        if len(send) > 2000:
+            count = 0
+            txt = ""
+            send = send.split()
+            for elem in send:
+                if count + len(elem) >= 2000:
+                    bot.send_message(message.chat.id, txt)
+                    count = 0
+                    txt = elem
+                else:
+                    txt += "\n" + elem
+            else:
+                bot.send_message(message.chat.id, txt)
+
+        else:
+            bot.send_message(message.chat.id, send)
         if number_photos > 0:
             photos = logic.get_photo(hotels_list[numbers_elem]["id"])
             for photo_index in range(number_photos):

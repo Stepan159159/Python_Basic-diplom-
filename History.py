@@ -46,21 +46,21 @@ class Users:
         cls.users[user_id] = user
 
     def save(self) -> None:
-        Person.create_table()
-        usr = Person(user_id=self.user_id, command=self.command,
-                     date=self.start, hotels=
-                     f"{[A['name'] for A in self.hotels[:self.hotels_count]]}")
-        usr.save()
+        with db:
+            Person.create_table()
+            usr = Person(user_id=self.user_id, command=self.command,
+                         date=self.start, hotels=
+                         f"{[A['name'] for A in self.hotels[:self.hotels_count]]}")
 
     @staticmethod
     def read(user_id) -> list:
-        lst = []
-        for elem in Person.select().where(Person.user_id == user_id):
-            try:
-                q = eval(elem.hotels)
-                print(q)
-                z = q if q != [] else ["Ничего не нашлось"]
-            except Exception:
-                pass
-            lst += [elem.command, elem.date] + z + ["="*50]
-        return lst
+        with db:
+            lst = []
+            for elem in Person.select().where(Person.user_id == user_id):
+                try:
+                    q = eval(elem.hotels)
+                    z = q if q != [] else ["Ничего не нашлось"]
+                except Exception:
+                    pass
+                lst += [elem.command, elem.date] + z + ["="*50]
+            return lst

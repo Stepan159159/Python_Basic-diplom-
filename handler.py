@@ -34,6 +34,40 @@ def check_out_date_callendar(message):
                      reply_markup=calendar)
 
 
+def min_distance_get(message) -> None:
+    txt = message.text.replace(",", ".")
+    txt = "".join(filter(lambda x: x in "1234567890.", txt))
+    if txt == "":
+        bot.send_message(message.chat.id,
+                         "Я вас не понял по этому будем считать что 0 км")
+        distance_min = 0
+    txt = txt if txt != "" else "0"
+    try:
+        distance_min = float(txt)
+    except Exception:
+        bot.send_message(message.chat.id,
+                         "Я вас не понял по этому будем считать что 0 км")
+        distance_min = 0
+    bot.send_message(message.chat.id, "Введите максимальную дистанцию в км.")
+    Users.get_user(message.chat.id).min_distance = distance_min
+    bot.register_next_step_handler(message, max_distance_get)
+
+
+def max_distance_get(message) -> None:
+    txt = message.text
+    txt = "".join(filter(lambda x: x in "1234567890.", txt))
+    txt = txt if txt != "" else "0"
+    try:
+        distance_max = float(txt)
+    except Exception:
+        bot.send_message(message.chat.id,
+                         "Я вас не понял по этому будем считать что 999 км")
+        distance_max = 999
+    bot.send_message(message.chat.id, "Введите минимальную цену.")
+    Users.get_user(message.chat.id).max_distanse = distance_max
+    bot.register_next_step_handler(message, min_price_get)
+
+
 def min_price_get(message) -> None:
     txt = message.text
     txt = "".join(filter(lambda x: x in "1234567890", txt))
@@ -62,13 +96,8 @@ def max_price_get(message) -> None:
 def hotels_list(message) -> None:
     bot.send_message(message.chat.id, "Город найден ищем отели в нём.")
     chat_id = message.chat.id
-    usr =  Users.get_user(chat_id)
-    hotels = logic.get_search_hotels(usr.city,
-                                     usr.check_in,
-                                     usr.check_out,
-                                     usr.mode,
-                                     usr.price_min,
-                                     usr.price_max)
+    usr = Users.get_user(chat_id)
+    hotels = logic.get_search_hotels(message)
     bot.send_message(message.chat.id, f"Нашлось отелей: {len(hotels)}")
     markup = telebot.types.ReplyKeyboardMarkup()
     send_yes = telebot.types.KeyboardButton('Да')
@@ -155,15 +184,21 @@ def set_max_hotels(message, hotels_list: list = None, number_photos: int = 0)\
 def send_result(message, hotels_list: list = None, number_photos: int = 0,
                 number_hotels: int = 0) -> None:
     Users.get_user(message.chat.id).save()
+    days = Users.get_user(message.chat.id).check_out \
+           - Users.get_user(message.chat.id).check_in
     for numbers_elem in range(number_hotels):
-        send = hotels_list[numbers_elem]["name"] + "\n" + \
-               hotels_list[numbers_elem]["address"]["streetAddress"] + "\n" + \
-               str(hotels_list[numbers_elem]["landmarks"][0]["label"]) + " " +\
-               str(hotels_list[numbers_elem]["landmarks"][0]["distance"]) + \
-               "\n" + \
-               "Цена номера на одного равна " +\
-               str(hotels_list[numbers_elem]["ratePlan"]["price"]
-                   ["exactCurrent"])
+        try:
+            send = hotels_list[numbers_elem]["name"] + "\n" + \
+                   hotels_list[numbers_elem]["address"]["streetAddress"] + "\n" + \
+                   str(hotels_list[numbers_elem]["landmarks"][0]["label"]) + " " +\
+                   str(hotels_list[numbers_elem]["landmarks"][0]["distance"]) + \
+                   "\n" + \
+                   "Цена номера на одного равна " +\
+                   str(hotels_list[numbers_elem]["ratePlan"]["price"]
+                       ["exactCurrent"])
+        except Exception:
+            send = "Проблемы с данными по этому отелю."
+
         if len(send) > 2000:
             count = 0
             txt = ""

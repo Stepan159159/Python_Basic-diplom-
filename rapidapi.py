@@ -2,7 +2,7 @@ import os
 import requests
 import json
 from typing import Union
-
+from History import Users
 
 def get_location_id(location: str) -> Union[list[str], dict]:
     url = "https://hotels4.p.rapidapi.com/locations/search"
@@ -24,31 +24,31 @@ def get_location_id(location: str) -> Union[list[str], dict]:
         return ["Что-то пошло не так"]
 
 
-def get_search_hotels(destinationId:int, date_in, date_out, sort: str,
-                      price_min: int = 0, price_max: int = 999999) -> dict:
+def get_search_hotels(message, page: int = 1) -> dict:
     url = "https://hotels4.p.rapidapi.com/properties/list"
-    querystring = {"destinationId": f"{destinationId}",
-                   "pageNumber": "1",
+    usr = Users.get_user(message.chat.id)
+    querystring = {"destinationId": f"{usr.city}",
+                   "pageNumber": str(page),
                    "pageSize": "25",
-                   "checkIn": date_in,
-                   "checkOut": date_out,
+                   "checkIn": usr.check_in,
+                   "checkOut": usr.check_out,
                    "adults1": "1",
-                   "sortOrder": sort,
+                   "sortOrder": usr.mode,
                    "locale": "ru_RU", "currency": "RUB",
                    "landmarkIds": "City center",
-                   "priceMin": price_min, "priceMax": price_max}
+                   "priceMin": usr.price_min, "priceMax": usr.price_max}
 
     headers = {
         'x-rapidapi-host': os.getenv('x-rapidapi-host'),
         'x-rapidapi-key': os.getenv('x-rapidapi-key')
         }
     try:
-        response = requests.request("GET", url, headers=headers, params=querystring,
-                                timeout=10)
+        response = requests.request("GET", url, headers=headers,
+                                    params=querystring, timeout=10)
     except requests.exceptions.ConnectTimeout:
         return ["Что-то пошло не так"]
     if response.status_code == 200:
-        if sort == "DISTANCE_FROM_LANDMARK":
+        if usr.mode == "DISTANCE_FROM_LANDMARK":
             hotels = json.loads(response.text)["data"]["body"]["searchResults"]\
                 ["results"]
             hotels = sorted(
@@ -66,6 +66,14 @@ def get_search_hotels(destinationId:int, date_in, date_out, sort: str,
                  float(x["ratePlan"]["price"]["current"].replace(",", ".")
                        .replace("RUB", "").replace(" ", "")))
             )
+            hotels = filter(lambda x: usr.min_distance <= \
+                                      float(x["landmarks"][0]
+                                            ["distance"].replace(" км", "") \
+                                            .replace(",", ".")) \
+                                      <= usr.max_distanse, hotels)
+            hotels = list(hotels)
+            if len(hotels) == 0 and page <= 3:
+                get_search_hotels(message, page=page+1)
             return hotels
         return json.loads(response.text)["data"]["body"]["searchResults"]\
         ["results"]

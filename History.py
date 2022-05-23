@@ -32,6 +32,8 @@ class Users:
         self.mode = mode
         self.hotels = None
         self.user_id = user_id
+        self.min_distance = None
+        self.max_distanse = None
         Users.add_user(user_id, self)
 
     @staticmethod
@@ -51,6 +53,7 @@ class Users:
             usr = Person(user_id=self.user_id, command=self.command,
                          date=self.start, hotels=
                          f"{[A['name'] for A in self.hotels[:self.hotels_count]]}")
+            usr.save()
 
     @staticmethod
     def read(user_id) -> list:

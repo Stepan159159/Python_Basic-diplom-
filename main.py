@@ -1,6 +1,6 @@
 import telegram_bot_calendar
 from handler import check_in_date_callendar, check_out_date_callendar, \
-    min_price_get, hotels_list, location
+    min_distance_get, hotels_list, location
 from Loader import bot
 from History import Users
 
@@ -80,8 +80,9 @@ def callback_worker(call):
     usr.city = call.data
     bot.send_message(call.message.chat.id, "Благодарю.")
     if Users.get_user(call.message.chat.id).mode == "DISTANCE_FROM_LANDMARK":
-        bot.send_message(call.message.chat.id, "Введите минимальную цену.")
-        bot.register_next_step_handler(call.message, min_price_get)
+        bot.send_message(call.message.chat.id, "Введите минимальную дистанцию"
+                                               "от центра города.")
+        bot.register_next_step_handler(call.message, min_distance_get)
     else:
         check_in_date_callendar(call.message)
 
